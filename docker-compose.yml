@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:///./data/syslog_tool.db
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+      LOG_LEVEL: INFO
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - backend_data:/app/data
+      - backend_uploads:/app/uploads
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_data:
+  backend_uploads:
