@@ -44,7 +44,7 @@ async def test_upload_returns_sessions_and_stores_nothing(client):
     assert invite_session["call_id"] == "call-flow-123@sbc11.example.com"
     flow = invite_session["flow"]
     assert len(flow["steps"]) == 5
-    assert [participant["label"] for participant in flow["participants"]] == ["example.com"]
+    assert [participant["label"] for participant in flow["participants"]] == ["example.com", "52.114.75.24"]
     assert any(step["label"] == "INVITE" for step in flow["steps"])
     assert any(message["raw_text"].startswith("INVITE") for message in invite_session["messages"])
 
@@ -80,3 +80,26 @@ async def test_web_export_groups_headerless_sip_by_call_id(client):
     assert options["to_participant"] == ids["10.183.57.1"]
     assert ok["from_participant"] == ids["10.183.57.1"]
     assert ok["to_participant"] == ids["72.10.10.68"]
+
+
+@pytest.mark.asyncio
+async def test_response_arrow_follows_outgoing_peer(client):
+    content = """Oct 19 09:37:46.514 local3.notice [S=33454867] [SID=cb315a:67:7894027] (N 1) ---- Outgoing SIP Message to 62.140.143.68:5060 from SIPInterface #5 ----
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKnd7vpc30bokcjc5df1o8.1
+From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
+To: <sip:04320726000@62.140.143.68>;tag=3a8ab50a
+Call-ID: call-1@10.183.57.1
+CSeq: 1 INVITE
+Content-Length: 0
+"""
+    response = await client.post(
+        "/api/uploads",
+        files={"file": ("syslog.txt", content.encode(), "text/plain")},
+    )
+    assert response.status_code == 200
+    session = response.json()["sessions"][0]
+    ids = {participant["label"]: participant["id"] for participant in session["flow"]["participants"]}
+    ok = next(step for step in session["flow"]["steps"] if step["label"] == "200 OK")
+    assert ok["from_participant"] == ids["10.183.57.1"]
+    assert ok["to_participant"] == ids["62.140.143.68"]

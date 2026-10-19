@@ -122,6 +122,7 @@ def _resolve_participants(messages: list[MessageDetail]) -> dict[str, str]:
         for host in (
             extract_uri_host(message.from_header),
             extract_uri_host(message.to_header),
+            message.peer_ip,
         ):
             if host:
                 participants.setdefault(f"host:{host}", host)
@@ -135,12 +136,31 @@ def _other_host(host_id: str, participants: dict[str, str]) -> str | None:
     return None
 
 
+def _local_endpoint(
+    peer_id: str,
+    from_id: str,
+    to_id: str,
+    participants: dict[str, str],
+) -> str:
+    for candidate in (from_id, to_id):
+        if candidate != peer_id:
+            return candidate
+    return _other_host(peer_id, participants) or peer_id
+
+
 def _step_endpoints(message: MessageDetail, participants: dict[str, str]) -> tuple[str, str]:
     from_id = _host_id(extract_uri_host(message.from_header))
     to_id = _host_id(extract_uri_host(message.to_header))
+    peer_id = _host_id(message.peer_ip)
     fallback = next(iter(participants), "unknown")
     from_id = from_id or fallback
     to_id = to_id or fallback
+
+    if message.direction in {"incoming", "outgoing"} and peer_id in participants:
+        local_id = _local_endpoint(peer_id, from_id, to_id, participants)
+        if message.direction == "outgoing":
+            return local_id, peer_id
+        return peer_id, local_id
 
     if from_id == to_id:
         other = _other_host(from_id, participants)
