@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/context/ThemeContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import Layout from "@/components/Layout";
 import FlowPage from "@/pages/FlowPage";
 import SessionsPage from "@/pages/SessionsPage";
@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
+      <LanguageProvider>
         <BrowserRouter>
           <Routes>
             <Route element={<Layout />}>
@@ -24,7 +24,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ThemeProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

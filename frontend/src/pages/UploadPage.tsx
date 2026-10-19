@@ -3,9 +3,11 @@ import { useMutation } from "@tanstack/react-query";
 import { FileUp, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { clearAnalysis, loadAnalysis, uploadSyslog, type AnalysisResponse } from "@/api/client";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function UploadPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [dragOver, setDragOver] = useState(false);
   const [pasted, setPasted] = useState("");
   const [result, setResult] = useState<AnalysisResponse | null>(() => loadAnalysis());
@@ -42,10 +44,8 @@ export default function UploadPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="app-page-title">Syslog uploaden</h1>
-        <p className="app-page-subtitle">
-          Upload een bestand of plak een AudioCodes syslog. Het resultaat blijft alleen in dit browsertabblad.
-        </p>
+        <h1 className="app-page-title">{t.uploadTitle}</h1>
+        <p className="app-page-subtitle">{t.uploadSubtitle}</p>
       </div>
 
       <div
@@ -68,11 +68,11 @@ export default function UploadPage() {
             {mutation.isPending ? <Loader2 className="animate-spin" size={32} /> : <FileUp size={32} />}
           </div>
           <div>
-            <p className="font-medium">Sleep een syslog bestand hierheen</p>
-            <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">of kies een .log / .txt bestand</p>
+            <p className="font-medium">{t.drop}</p>
+            <p className="text-sm text-gray-500 mt-1">{t.dropHint}</p>
           </div>
           <label className="app-btn-primary cursor-pointer">
-            Bestand kiezen
+            {t.chooseFile}
             <input
               type="file"
               accept=".log,.txt,.syslog"
@@ -86,16 +86,14 @@ export default function UploadPage() {
       <div className="app-card p-6 space-y-4">
         <div>
           <label htmlFor="syslog-paste" className="font-medium">
-            Log plakken
+            {t.pasteTitle}
           </label>
-          <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-            Plak de syslog-tekst en analyseer hem zonder een bestand te kiezen.
-          </p>
+          <p className="text-sm text-gray-500 mt-1">{t.pasteHint}</p>
         </div>
         <textarea
           id="syslog-paste"
           className="app-input min-h-48 font-mono text-xs"
-          placeholder="Plak hier een AudioCodes syslog..."
+          placeholder={t.pastePlaceholder}
           value={pasted}
           onChange={(event) => setPasted(event.target.value)}
         />
@@ -105,41 +103,41 @@ export default function UploadPage() {
           disabled={!pasted.trim() || mutation.isPending}
           onClick={handlePaste}
         >
-          Log analyseren
+          {t.analyze}
         </button>
       </div>
 
       {mutation.isError && (
         <div className="app-card p-4 border-red-300 dark:border-red-900 text-red-700 dark:text-red-300 text-sm">
-          Upload mislukt: {(mutation.error as Error).message}
+          {t.uploadFailed}: {(mutation.error as Error).message}
         </div>
       )}
 
       {result && (
         <div className="app-card p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Parse resultaat</h2>
+          <h2 className="text-lg font-semibold">{t.result}</h2>
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt className="text-gray-500">Bestand</dt>
+              <dt className="text-gray-500">{t.file}</dt>
               <dd className="font-medium truncate">{result.filename}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Sessies</dt>
+              <dt className="text-gray-500">{t.sessions}</dt>
               <dd className="font-medium">{result.session_count}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">SIP berichten</dt>
+              <dt className="text-gray-500">{t.sipMessages}</dt>
               <dd className="font-medium">{result.message_count}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Warnings</dt>
+              <dt className="text-gray-500">{t.warnings}</dt>
               <dd className="font-medium">{result.parse_warnings.length}</dd>
             </div>
           </dl>
 
           {result.parse_warnings.length > 0 && (
             <div className="text-sm">
-              <p className="font-medium mb-2">Parse warnings</p>
+              <p className="font-medium mb-2">{t.parseWarnings}</p>
               <ul className="list-disc pl-5 space-y-1 text-gray-600 dark:text-neutral-400 max-h-32 overflow-auto">
                 {result.parse_warnings.slice(0, 10).map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -153,10 +151,10 @@ export default function UploadPage() {
               className="app-btn-primary"
               onClick={() => navigate(`/sessions?uploadId=${result.id}`)}
             >
-              Bekijk sessies
+              {t.viewSessions}
             </button>
             <button className="app-btn-secondary" type="button" onClick={handleClear}>
-              Wissen
+              {t.clear}
             </button>
           </div>
         </div>

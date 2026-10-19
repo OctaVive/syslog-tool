@@ -4,9 +4,11 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { buildFlowExport, loadAnalysis } from "@/api/client";
 import MessageDetailPanel from "@/components/MessageDetailPanel";
 import SipLadderDiagram from "@/components/SipLadderDiagram";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function FlowPage() {
   const { sessionId = "" } = useParams();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const uploadId = searchParams.get("uploadId") || loadAnalysis()?.id || "";
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export default function FlowPage() {
   };
 
   if (!session) {
-    return <div className="app-card p-6">Kon call flow niet laden.</div>;
+    return <div className="app-card p-6">{t.flowFailed}</div>;
   }
 
   return (
@@ -74,16 +76,14 @@ export default function FlowPage() {
             className="inline-flex items-center gap-1 text-sm text-brand hover:underline mb-2"
           >
             <ArrowLeft size={16} />
-            Terug naar sessies
+            {t.back}
           </Link>
-          <h1 className="app-page-title">SIP Call Flow</h1>
-          <p className="app-page-subtitle">
-            SID {session.sid} · {session.flow.steps.length} berichten
-          </p>
+          <h1 className="app-page-title">{t.flowTitle}</h1>
+          <p className="app-page-subtitle">{t.flowSubtitle(session.sid, session.flow.steps.length)}</p>
         </div>
         <button className="app-btn-secondary inline-flex items-center gap-2" onClick={handleExport}>
           <Download size={16} />
-          Export TXT
+          {t.export}
         </button>
       </div>
 
@@ -102,7 +102,7 @@ export default function FlowPage() {
         <div
           role="separator"
           aria-orientation="vertical"
-          aria-label="Berichtpaneel vergroten of verkleinen"
+          aria-label={t.resizePanel}
           className="hidden xl:flex w-3 shrink-0 cursor-col-resize items-center justify-center"
           onPointerDown={onResizeStart}
         >

@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { filterSessions, loadAnalysis } from "@/api/client";
+import { useLanguage } from "@/context/LanguageContext";
 
 const SIP_METHODS = ["INVITE", "OPTIONS", "REGISTER", "BYE", "ACK", "CANCEL", "NOTIFY", "SUBSCRIBE"];
 
 export default function SessionsPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const analysis = loadAnalysis();
   const uploadId = searchParams.get("uploadId") || analysis?.id || "";
@@ -42,7 +44,7 @@ export default function SessionsPage() {
   if (!visible) {
     return (
       <div className="app-card p-6">
-        <p>Geen upload geselecteerd. Upload eerst een syslog bestand.</p>
+        <p>{t.noUpload}</p>
       </div>
     );
   }
@@ -50,10 +52,8 @@ export default function SessionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="app-page-title">SIP sessies</h1>
-        <p className="app-page-subtitle">
-          {`${visible.filename} — ${visible.session_count} sessies`}
-        </p>
+        <h1 className="app-page-title">{t.sessionsTitle}</h1>
+        <p className="app-page-subtitle">{t.sessionCount(visible.filename, visible.session_count)}</p>
       </div>
 
       <div className="app-card p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -62,7 +62,7 @@ export default function SessionsPage() {
         <input className="app-input" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input className="app-input" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
         <select className="app-input" value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="">Method (alle)</option>
+          <option value="">{t.methodAll}</option>
           {SIP_METHODS.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -70,7 +70,7 @@ export default function SessionsPage() {
           ))}
         </select>
         <button className="app-btn-primary" onClick={applyFilters}>
-          Filter
+          {t.filter}
         </button>
       </div>
 
@@ -83,9 +83,9 @@ export default function SessionsPage() {
                 <th className="px-4 py-3 font-medium">Call-ID</th>
                 <th className="px-4 py-3 font-medium">From</th>
                 <th className="px-4 py-3 font-medium">To</th>
-                <th className="px-4 py-3 font-medium">Tijd</th>
-                <th className="px-4 py-3 font-medium">Berichten</th>
-                <th className="px-4 py-3 font-medium">Methods</th>
+                <th className="px-4 py-3 font-medium">{t.time}</th>
+                <th className="px-4 py-3 font-medium">{t.messages}</th>
+                <th className="px-4 py-3 font-medium">{t.methods}</th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +123,7 @@ export default function SessionsPage() {
               {sessions.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                    Geen sessies gevonden voor deze filters.
+                    {t.noSessions}
                   </td>
                 </tr>
               )}
