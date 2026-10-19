@@ -38,7 +38,7 @@ def parse_upload(filename: str, content: bytes) -> AnalysisResponse:
     sessions: list[AnalysisSession] = []
     total_messages = 0
     for sid, items in grouped.items():
-        items.sort(key=lambda item: (item[0].timestamp, item[0].sequence))
+        items.sort(key=lambda item: (item[0].timestamp, item[0].sequence, item[0].part))
         session_id = str(uuid.uuid4())
         messages: list[MessageDetail] = []
         methods: set[str] = set()

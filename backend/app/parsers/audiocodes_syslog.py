@@ -65,6 +65,7 @@ class ParsedEvent:
     peer_port: int | None = None
     sip_text: str | None = None
     raw_lines: list[str] = field(default_factory=list)
+    part: int = 0
 
 
 def _is_syslog_header(line: str) -> bool:
@@ -204,10 +205,88 @@ def _event_from_orphan(lines: list[str]) -> ParsedEvent | None:
     return _finalize_event(event)
 
 
+def _sip_blocks(
+    lines: list[str],
+) -> list[tuple[str | None, str | None, int | None, str]]:
+    """Split one syslog record into the SIP messages it contains.
+
+    AudioCodes writes a direction marker before each message and sometimes packs
+    several messages into one record. A marker with no following SIP message is
+    ignored, so a trailing marker does not duplicate the message logged next.
+    """
+    blocks: list[tuple[str | None, str | None, int | None, str]] = []
+    pending: tuple[str | None, str | None, int | None] = (None, None, None)
+    current: list[str] | None = None
+    current_direction: tuple[str | None, str | None, int | None] = pending
+
+    def close() -> None:
+        nonlocal current
+        if current is None:
+            return
+        text = "\n".join(current).strip()
+        if text:
+            blocks.append((*current_direction, text))
+        current = None
+
+    for line in lines:
+        stripped = line.strip()
+        if TIME_TRAILER_RE.match(stripped):
+            close()
+            break
+        direction, peer_ip, peer_port = _extract_direction(line)
+        if direction is not None:
+            close()
+            pending = (direction, peer_ip, peer_port)
+            continue
+        payload = _sip_payload(line)
+        if payload is not None and (current is None or payload == stripped):
+            close()
+            current = [payload]
+            current_direction = pending
+            pending = (None, None, None)
+            continue
+        if current is not None:
+            current.append(line.rstrip())
+    close()
+    return blocks
+
+
+def _expand_event(event: ParsedEvent) -> list[ParsedEvent]:
+    blocks = _sip_blocks(event.raw_lines)
+    if not blocks:
+        event.sip_text = None
+        return [event]
+    expanded: list[ParsedEvent] = []
+    for index, (direction, peer_ip, peer_port, text) in enumerate(blocks):
+        if index == 0:
+            event.part = 0
+            event.direction = direction
+            event.peer_ip = peer_ip
+            event.peer_port = peer_port
+            event.sip_text = text
+            expanded.append(event)
+            continue
+        expanded.append(
+            ParsedEvent(
+                timestamp=event.timestamp,
+                device_ip=event.device_ip,
+                severity=event.severity,
+                sequence=event.sequence,
+                sid=event.sid,
+                bid=event.bid,
+                preamble=event.preamble,
+                direction=direction,
+                peer_ip=peer_ip,
+                peer_port=peer_port,
+                sip_text=text,
+                part=index,
+            )
+        )
+    return expanded
+
+
 def _finalize_event(event: ParsedEvent) -> ParsedEvent:
-    event.sip_text = _extract_sip_text(event.raw_lines)
-    _apply_direction(event)
-    return event
+    return _expand_event(event)[0]
 
 
 def _collapse_double_spacing(lines: list[str]) -> list[str]:
@@ -264,7 +343,7 @@ def parse_lines(lines: Iterator[str]) -> tuple[list[ParsedEvent], list[str]]:
             return
         event = _event_from_orphan(orphan)
         if event is not None:
-            events.append(event)
+            events.extend(_expand_event(event))
         else:
             for line in orphan:
                 stripped = line.strip()
@@ -276,7 +355,7 @@ def parse_lines(lines: Iterator[str]) -> tuple[list[ParsedEvent], list[str]]:
         nonlocal current
         if current is None:
             return
-        events.append(_finalize_event(current))
+        events.extend(_expand_event(current))
         current = None
 
     for line in lines:

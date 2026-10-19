@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.parsers.audiocodes_syslog import parse_file, parse_sip_events
 from app.parsers.sip_message import parse_sip_message
+from app.services.upload_service import parse_upload
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_audiocodes.syslog"
 WEB_EXPORT = Path(__file__).parent / "fixtures" / "web_export_audiocodes.syslog"
@@ -89,3 +90,44 @@ def test_web_export_syslog():
     assert orphan.status_code == 200
     assert orphan.method == "OPTIONS"
     assert orphan.call_id == "ed262f8538b46604aec827c775bfe9e1030000u6u3100@72.10.10.236"
+
+
+PACKED_CANCEL = Path(__file__).parent / "fixtures" / "packed_cancel.syslog"
+
+
+def test_packed_syslog_record_keeps_forwarded_cancel():
+    analysis = parse_upload("packed_cancel.syslog", PACKED_CANCEL.read_bytes())
+    session = next(item for item in analysis.sessions if item.sid == "cb315a:67:7894543")
+    ids = {participant.label: participant.id for participant in session.flow.participants}
+    steps = [(step.label, step.from_participant, step.to_participant) for step in session.flow.steps]
+
+    assert (
+        "CANCEL",
+        ids["72.10.10.68"],
+        ids["10.183.57.1"],
+    ) in steps
+    assert (
+        "200 OK",
+        ids["10.183.57.1"],
+        ids["72.10.10.68"],
+    ) in steps
+    assert (
+        "CANCEL",
+        ids["192.168.11.92"],
+        ids["192.168.11.220"],
+    ) in steps
+    assert (
+        "200 OK",
+        ids["192.168.11.220"],
+        ids["192.168.11.92"],
+    ) in steps
+    assert any(
+        label == "487 Request Terminated"
+        and {source, destination} == {ids["72.10.10.68"], ids["10.183.57.1"]}
+        for label, source, destination in steps
+    )
+    assert any(
+        label == "487 Request Terminated"
+        and {source, destination} == {ids["192.168.11.92"], ids["192.168.11.220"]}
+        for label, source, destination in steps
+    )

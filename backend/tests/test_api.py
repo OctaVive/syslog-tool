@@ -5,8 +5,11 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
-FIXTURE = Path(__file__).parent / "fixtures" / "sample_audiocodes.syslog"
-WEB_EXPORT = Path(__file__).parent / "fixtures" / "web_export_audiocodes.syslog"
+FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURE = FIXTURES / "sample_audiocodes.syslog"
+WEB_EXPORT = FIXTURES / "web_export_audiocodes.syslog"
+OUTGOING_200 = FIXTURES / "response_arrow_follows_outgoing_peer.syslog"
+INVITE_200 = FIXTURES / "invite_200_returns_to_invite_sender.syslog"
 
 
 @pytest.fixture
@@ -84,18 +87,10 @@ async def test_web_export_groups_headerless_sip_by_call_id(client):
 
 @pytest.mark.asyncio
 async def test_response_arrow_follows_outgoing_peer(client):
-    content = """Oct 19 09:37:46.514 local3.notice [S=33454867] [SID=cb315a:67:7894027] (N 1) ---- Outgoing SIP Message to 62.140.143.68:5060 from SIPInterface #5 ----
-SIP/2.0 200 OK
-Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKnd7vpc30bokcjc5df1o8.1
-From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
-To: <sip:04320726000@62.140.143.68>;tag=3a8ab50a
-Call-ID: call-1@10.183.57.1
-CSeq: 1 INVITE
-Content-Length: 0
-"""
+    content = OUTGOING_200.read_bytes()
     response = await client.post(
         "/api/uploads",
-        files={"file": ("syslog.txt", content.encode(), "text/plain")},
+        files={"file": (OUTGOING_200.name, content, "text/plain")},
     )
     assert response.status_code == 200
     session = response.json()["sessions"][0]
@@ -107,27 +102,10 @@ Content-Length: 0
 
 @pytest.mark.asyncio
 async def test_invite_200_returns_to_invite_sender(client):
-    content = """Oct 19 09:37:46.469 local3.notice [S=33454860] [SID=cb315a:67:7894027] (N 1) ---- Incoming SIP Message from 62.140.143.68:5060 to SIPInterface #5 ----
-INVITE sip:04320726000@10.183.57.1 SIP/2.0
-Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKabc
-From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
-To: <sip:04320726000@62.140.143.68>
-Call-ID: call-1@10.183.57.1
-CSeq: 1 INVITE
-Content-Length: 0
-
-Oct 19 09:37:46.514 local3.notice [S=33454867] [SID=cb315a:67:7894027] (N 2) ---- Incoming SIP Message from 62.140.143.68:5060 to SIPInterface #5 ----
-SIP/2.0 200 OK
-Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKabc
-From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
-To: <sip:04320726000@62.140.143.68>;tag=3a8ab50a
-Call-ID: call-1@10.183.57.1
-CSeq: 1 INVITE
-Content-Length: 0
-"""
+    content = INVITE_200.read_bytes()
     response = await client.post(
         "/api/uploads",
-        files={"file": ("syslog.txt", content.encode(), "text/plain")},
+        files={"file": (INVITE_200.name, content, "text/plain")},
     )
     assert response.status_code == 200
     session = response.json()["sessions"][0]

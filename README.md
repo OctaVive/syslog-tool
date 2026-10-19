@@ -88,4 +88,4 @@ syslog-tool/
 ## Tips
 
 - Gebruik geanonimiseerde productiebestanden om edge cases te valideren (firmwareversies, split messages).
-- Sample testdata staat in `backend/tests/fixtures/sample_audiocodes.syslog`.
+- Lokale testdata hoort in `backend/tests/fixtures/`. Die map wordt niet mee gepubliceerd.
