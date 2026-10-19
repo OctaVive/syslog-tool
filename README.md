@@ -73,19 +73,14 @@ docker compose up --build
 
 | Method | Endpoint | Beschrijving |
 |--------|----------|--------------|
-| POST | `/api/uploads` | Upload syslog bestand |
-| GET | `/api/uploads/{id}` | Upload metadata |
-| GET | `/api/uploads/{id}/sessions` | Sessielijst met filters |
-| GET | `/api/sessions/{id}` | Sessie detail |
-| GET | `/api/sessions/{id}/flow` | Ladder diagram data |
-| GET | `/api/sessions/{id}/flow/export` | Export als TXT |
-| GET | `/api/messages/{id}` | SIP bericht detail |
+| POST | `/api/uploads` | Parse een syslog bestand en geef de sessies terug. Er wordt niets opgeslagen. |
+| GET | `/api/health` | Health check |
 
 ## Projectstructuur
 
 ```
 syslog-tool/
-├── backend/          FastAPI + parsers + SQLite
+├── backend/          FastAPI + parsers
 ├── frontend/         React + TypeScript + Tailwind
 └── docker-compose.yml
 ```

@@ -13,6 +13,8 @@ SIP_RESPONSE_LINE_RE = re.compile(
 )
 HEADER_RE = re.compile(r"^([\w\-!.%*]+)\s*:\s*(.*)$")
 FOLDED_HEADER_RE = re.compile(r"^\s+(.+)$")
+INLINE_HEADER_SPLIT_RE = re.compile(r"\s{2,}(?=[A-Za-z][\w\-!.%*]*\s*:)")
+SDP_LINE_RE = re.compile(r"^[a-zA-Z]=")
 
 
 @dataclass
@@ -48,15 +50,36 @@ def _method_from_cseq(cseq_value: str) -> str | None:
     return None
 
 
+def _split_inline_headers(text: str) -> list[str]:
+    lines: list[str] = []
+    for line in text.splitlines():
+        parts = [part.strip() for part in INLINE_HEADER_SPLIT_RE.split(line.strip())]
+        lines.extend(part for part in parts if part)
+    return lines
+
+
+def _trim_trailing_log(lines: list[str]) -> list[str]:
+    if not lines:
+        return lines
+    kept = [lines[0]]
+    for line in lines[1:]:
+        if line.strip() == "" or HEADER_RE.match(line) or FOLDED_HEADER_RE.match(line) or SDP_LINE_RE.match(line):
+            kept.append(line)
+            continue
+        break
+    return kept
+
+
 def parse_sip_message(text: str) -> ParsedSipMessage | None:
     text = text.strip()
     if not text:
         return None
 
-    lines = text.splitlines()
+    lines = _trim_trailing_log(_split_inline_headers(text))
     if not lines:
         return None
 
+    text = "\n".join(lines).strip()
     first_line = lines[0].strip()
     parsed = ParsedSipMessage(raw_text=text, is_request=False)
 
@@ -93,7 +116,7 @@ def parse_sip_message(text: str) -> ParsedSipMessage | None:
             headers[current_key] = f"{headers[current_key]} {folded_match.group(1).strip()}"
             continue
 
-        return None
+        break
 
     parsed.headers = headers
     if body_start is not None and body_start < len(header_lines):
