@@ -103,3 +103,38 @@ Content-Length: 0
     ok = next(step for step in session["flow"]["steps"] if step["label"] == "200 OK")
     assert ok["from_participant"] == ids["10.183.57.1"]
     assert ok["to_participant"] == ids["62.140.143.68"]
+
+
+@pytest.mark.asyncio
+async def test_invite_200_returns_to_invite_sender(client):
+    content = """Oct 19 09:37:46.469 local3.notice [S=33454860] [SID=cb315a:67:7894027] (N 1) ---- Incoming SIP Message from 62.140.143.68:5060 to SIPInterface #5 ----
+INVITE sip:04320726000@10.183.57.1 SIP/2.0
+Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKabc
+From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
+To: <sip:04320726000@62.140.143.68>
+Call-ID: call-1@10.183.57.1
+CSeq: 1 INVITE
+Content-Length: 0
+
+Oct 19 09:37:46.514 local3.notice [S=33454867] [SID=cb315a:67:7894027] (N 2) ---- Incoming SIP Message from 62.140.143.68:5060 to SIPInterface #5 ----
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 62.140.143.68:5060;branch=z9hG4bKabc
+From: <sip:0615650031@10.183.57.1>;tag=SDv7loc01-2d92a69
+To: <sip:04320726000@62.140.143.68>;tag=3a8ab50a
+Call-ID: call-1@10.183.57.1
+CSeq: 1 INVITE
+Content-Length: 0
+"""
+    response = await client.post(
+        "/api/uploads",
+        files={"file": ("syslog.txt", content.encode(), "text/plain")},
+    )
+    assert response.status_code == 200
+    session = response.json()["sessions"][0]
+    ids = {participant["label"]: participant["id"] for participant in session["flow"]["participants"]}
+    invite = next(step for step in session["flow"]["steps"] if step["label"] == "INVITE")
+    ok = next(step for step in session["flow"]["steps"] if step["label"] == "200 OK")
+    assert invite["from_participant"] == ids["62.140.143.68"]
+    assert invite["to_participant"] == ids["10.183.57.1"]
+    assert ok["from_participant"] == ids["10.183.57.1"]
+    assert ok["to_participant"] == ids["62.140.143.68"]

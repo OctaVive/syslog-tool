@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -110,6 +111,16 @@ def parse_upload(filename: str, content: bytes) -> AnalysisResponse:
     )
 
 
+_BRANCH_RE = re.compile(r"\bbranch=([^;\s]+)", re.IGNORECASE)
+
+
+def _via_branch(via: str | None) -> str | None:
+    if not via:
+        return None
+    match = _BRANCH_RE.search(via)
+    return match.group(1) if match else None
+
+
 def _host_id(host: str | None) -> str | None:
     if not host:
         return None
@@ -183,8 +194,24 @@ def build_flow(session_id: str, sid: str, messages: list[MessageDetail]) -> Flow
     ]
 
     steps: list[FlowStep] = []
+    request_by_branch: dict[str, tuple[str, str]] = {}
+    request_by_cseq: dict[tuple[str | None, str], tuple[str, str]] = {}
     for message in messages:
         from_id, to_id = _step_endpoints(message, participants_map)
+        if message.status_code is None:
+            endpoints = (from_id, to_id)
+            branch = _via_branch(message.via)
+            if branch:
+                request_by_branch[branch] = endpoints
+            if message.cseq:
+                request_by_cseq[(message.call_id, message.cseq)] = endpoints
+        else:
+            branch = _via_branch(message.via)
+            answered = request_by_branch.get(branch) if branch else None
+            if answered is None and message.cseq:
+                answered = request_by_cseq.get((message.call_id, message.cseq))
+            if answered is not None:
+                from_id, to_id = answered[1], answered[0]
         if message.method and message.status_code is None:
             label = message.method
             is_request = True
