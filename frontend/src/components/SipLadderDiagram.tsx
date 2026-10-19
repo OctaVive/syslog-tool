@@ -72,6 +72,7 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
           const arrowWidth = Math.abs(x2 - x1);
           const labelX = sameColumn ? x1 : left + arrowWidth / 2;
           const directionRight = x2 >= x1;
+          const labelWidth = Math.max(72, step.label.length * 6.2 + 16);
 
           return (
             <g
@@ -92,9 +93,9 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
                 />
               )}
               <rect
-                x={labelX - 36}
+                x={labelX - labelWidth / 2}
                 y={y - 22}
-                width={72}
+                width={labelWidth}
                 height={18}
                 rx={4}
                 className={isSelected ? "fill-brand text-white" : "fill-white dark:fill-neutral-900"}

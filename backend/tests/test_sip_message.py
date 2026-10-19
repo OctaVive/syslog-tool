@@ -67,6 +67,7 @@ Content-Length: 0
     parsed = parse_sip_message(sip_events[0].sip_text or "")
     assert parsed is not None
     assert parsed.status_code == 100
+    assert parsed.reason_phrase == "Trying"
     assert parsed.method == "INVITE"
     assert parsed.call_id == "127461224119102826102949@10.68.32.70"
     assert parsed.via is not None and parsed.via.startswith("SIP/2.0/UDP 10.68.32.70:5060")

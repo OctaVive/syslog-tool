@@ -68,6 +68,7 @@ def parse_upload(filename: str, content: bytes) -> AnalysisResponse:
                     raw_text=parsed.raw_text,
                     method=parsed.method,
                     status_code=parsed.status_code,
+                    reason_phrase=parsed.reason_phrase,
                     call_id=parsed.call_id,
                     from_header=parsed.from_header,
                     to_header=parsed.to_header,
@@ -168,7 +169,11 @@ def build_flow(session_id: str, sid: str, messages: list[MessageDetail]) -> Flow
             label = message.method
             is_request = True
         elif message.status_code is not None:
-            label = f"{message.status_code}"
+            label = (
+                f"{message.status_code} {message.reason_phrase}"
+                if message.reason_phrase
+                else f"{message.status_code}"
+            )
             is_request = False
         else:
             label = "SIP"

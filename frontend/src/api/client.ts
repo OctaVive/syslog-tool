@@ -50,6 +50,7 @@ export interface MessageDetail {
   raw_text: string;
   method: string | null;
   status_code: number | null;
+  reason_phrase: string | null;
   call_id: string | null;
   from_header: string | null;
   to_header: string | null;

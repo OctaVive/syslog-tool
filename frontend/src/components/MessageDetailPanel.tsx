@@ -7,6 +7,15 @@ interface Props {
   loading?: boolean;
 }
 
+function messageTitle(message: MessageDetail): string {
+  if (message.status_code != null) {
+    return message.reason_phrase
+      ? `${message.status_code} ${message.reason_phrase}`
+      : `${message.status_code}`;
+  }
+  return message.method || "SIP bericht";
+}
+
 export default function MessageDetailPanel({ message, loading }: Props) {
   if (loading) {
     return (
@@ -28,7 +37,7 @@ export default function MessageDetailPanel({ message, loading }: Props) {
     <div className="app-card p-4 h-full flex flex-col min-h-0">
       <div className="mb-4">
         <h2 className="font-semibold">
-          {message.method || (message.status_code ? `${message.status_code}` : "SIP bericht")}
+          {messageTitle(message)}
         </h2>
         <p className="text-xs text-gray-500 mt-1">
           {message.timestamp} · seq {message.sequence}

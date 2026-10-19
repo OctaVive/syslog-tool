@@ -55,6 +55,7 @@ class MessageDetail(BaseModel):
     raw_text: str
     method: str | None
     status_code: int | None
+    reason_phrase: str | None
     call_id: str | None
     from_header: str | None
     to_header: str | None

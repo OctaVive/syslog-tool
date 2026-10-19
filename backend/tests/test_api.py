@@ -75,7 +75,7 @@ async def test_web_export_groups_headerless_sip_by_call_id(client):
     assert labels == ["72.10.10.68", "10.183.57.1"]
     ids = {participant["label"]: participant["id"] for participant in ping["flow"]["participants"]}
     options = next(step for step in ping["flow"]["steps"] if step["label"] == "OPTIONS")
-    ok = next(step for step in ping["flow"]["steps"] if step["label"] == "200")
+    ok = next(step for step in ping["flow"]["steps"] if step["label"] == "200 OK")
     assert options["from_participant"] == ids["72.10.10.68"]
     assert options["to_participant"] == ids["10.183.57.1"]
     assert ok["from_participant"] == ids["10.183.57.1"]
