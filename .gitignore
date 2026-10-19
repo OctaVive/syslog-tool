@@ -9,4 +9,4 @@ node_modules/
 .pytest_cache/
 *.db
 uploads/
-backend/tests/fixtures/
+backend/tests/

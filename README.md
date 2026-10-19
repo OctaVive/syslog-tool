@@ -88,4 +88,4 @@ syslog-tool/
 ## Tips
 
 - Gebruik geanonimiseerde productiebestanden om edge cases te valideren (firmwareversies, split messages).
-- Lokale testdata hoort in `backend/tests/fixtures/`. Die map wordt niet mee gepubliceerd.
+- `backend/tests/` blijft lokaal en wordt niet gepubliceerd. De applicatie heeft die map niet nodig om te draaien.
