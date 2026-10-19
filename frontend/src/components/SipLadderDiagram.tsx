@@ -23,7 +23,7 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
   const height = HEADER_HEIGHT + flow.steps.length * ROW_HEIGHT + 40;
 
   return (
-    <div className="app-card p-4 overflow-auto">
+    <div className="app-card p-4 overflow-auto h-full">
       <svg width={width} height={height} className="min-w-full">
         {flow.participants.map((participant, index) => {
           const x = PADDING_X + index * COLUMN_WIDTH + COLUMN_WIDTH / 2;
@@ -67,8 +67,10 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
           const x1 = PADDING_X + fromIndex * COLUMN_WIDTH + COLUMN_WIDTH / 2;
           const x2 = PADDING_X + toIndex * COLUMN_WIDTH + COLUMN_WIDTH / 2;
           const isSelected = selectedMessageId === step.message_id;
+          const sameColumn = fromIndex === toIndex;
           const left = Math.min(x1, x2);
-          const arrowWidth = Math.abs(x2 - x1) || 40;
+          const arrowWidth = Math.abs(x2 - x1);
+          const labelX = sameColumn ? x1 : left + arrowWidth / 2;
           const directionRight = x2 >= x1;
 
           return (
@@ -77,18 +79,20 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
               onClick={() => onSelect(step.message_id)}
               className="cursor-pointer"
             >
-              <line
-                x1={x1}
-                y1={y}
-                x2={x2}
-                y2={y}
-                stroke={isSelected ? "#0066cc" : step.is_request ? "#334155" : "#64748b"}
-                strokeWidth={isSelected ? 2.5 : 1.5}
-                strokeDasharray={step.is_request ? undefined : "6 4"}
-                markerEnd="url(#arrowhead)"
-              />
+              {sameColumn ? null : (
+                <line
+                  x1={x1}
+                  y1={y}
+                  x2={x2}
+                  y2={y}
+                  stroke={isSelected ? "#0066cc" : step.is_request ? "#334155" : "#64748b"}
+                  strokeWidth={isSelected ? 2.5 : 1.5}
+                  strokeDasharray={step.is_request ? undefined : "6 4"}
+                  markerEnd="url(#arrowhead)"
+                />
+              )}
               <rect
-                x={left + arrowWidth / 2 - 36}
+                x={labelX - 36}
                 y={y - 22}
                 width={72}
                 height={18}
@@ -98,7 +102,7 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
                 strokeWidth={1}
               />
               <text
-                x={left + arrowWidth / 2}
+                x={labelX}
                 y={y - 10}
                 textAnchor="middle"
                 className={isSelected ? "fill-white" : "fill-current"}
@@ -107,9 +111,9 @@ export default function SipLadderDiagram({ flow, selectedMessageId, onSelect }: 
                 {step.label}
               </text>
               <text
-                x={directionRight ? Math.max(x1, x2) + 8 : Math.min(x1, x2) - 8}
+                x={sameColumn ? x1 : directionRight ? Math.max(x1, x2) + 8 : Math.min(x1, x2) - 8}
                 y={y + 14}
-                textAnchor={directionRight ? "start" : "end"}
+                textAnchor={sameColumn ? "middle" : directionRight ? "start" : "end"}
                 className="fill-gray-400"
                 style={{ fontSize: 9 }}
               >

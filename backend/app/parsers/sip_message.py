@@ -41,6 +41,13 @@ def _header_lookup(headers: dict[str, str], name: str) -> str | None:
     return headers.get(_normalize_header_key(name))
 
 
+def _method_from_cseq(cseq_value: str) -> str | None:
+    parts = cseq_value.split()
+    if len(parts) >= 2 and parts[-1].isalpha():
+        return parts[-1].upper()
+    return None
+
+
 def parse_sip_message(text: str) -> ParsedSipMessage | None:
     text = text.strip()
     if not text:
@@ -64,14 +71,6 @@ def parse_sip_message(text: str) -> ParsedSipMessage | None:
             return None
         parsed.status_code = int(response_match.group(1))
         parsed.reason_phrase = response_match.group(2).strip()
-        cseq_header = None
-        for line in lines[1:]:
-            header_match = HEADER_RE.match(line)
-            if header_match and _normalize_header_key(header_match.group(1)) == "cseq":
-                cseq_header = header_match.group(2).strip()
-                break
-        if cseq_header:
-            parsed.method = cseq_header.split()[0].upper()
 
     header_lines = lines[1:]
     headers: dict[str, str] = {}
@@ -104,6 +103,8 @@ def parse_sip_message(text: str) -> ParsedSipMessage | None:
     parsed.from_header = _header_lookup(headers, "From")
     parsed.to_header = _header_lookup(headers, "To")
     parsed.cseq = _header_lookup(headers, "CSeq")
+    if not parsed.is_request and parsed.cseq:
+        parsed.method = _method_from_cseq(parsed.cseq)
     parsed.via = _header_lookup(headers, "Via")
     parsed.contact = _header_lookup(headers, "Contact")
     return parsed

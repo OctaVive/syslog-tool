@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getSessions, getUpload } from "@/api/client";
+import { filterSessions, loadAnalysis } from "@/api/client";
 
 const SIP_METHODS = ["INVITE", "OPTIONS", "REGISTER", "BYE", "ACK", "CANCEL", "NOTIFY", "SUBSCRIBE"];
 
 export default function SessionsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const uploadId = searchParams.get("uploadId") || sessionStorage.getItem("lastUploadId") || "";
+  const analysis = loadAnalysis();
+  const uploadId = searchParams.get("uploadId") || analysis?.id || "";
+  const visible = analysis && analysis.id === uploadId ? analysis : null;
 
   const [sid, setSid] = useState(searchParams.get("sid") || "");
   const [callId, setCallId] = useState(searchParams.get("call_id") || "");
@@ -16,28 +17,17 @@ export default function SessionsPage() {
   const [to, setTo] = useState(searchParams.get("to") || "");
   const [method, setMethod] = useState(searchParams.get("method") || "");
 
-  const filters = useMemo(
-    () => ({
-      sid: sid || undefined,
-      call_id: callId || undefined,
-      from: from || undefined,
-      to: to || undefined,
-      method: method || undefined,
-    }),
-    [sid, callId, from, to, method],
+  const sessions = useMemo(
+    () =>
+      filterSessions(visible?.sessions ?? [], {
+        sid: sid || undefined,
+        call_id: callId || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        method: method || undefined,
+      }),
+    [visible, sid, callId, from, to, method],
   );
-
-  const uploadQuery = useQuery({
-    queryKey: ["upload", uploadId],
-    queryFn: () => getUpload(uploadId),
-    enabled: Boolean(uploadId),
-  });
-
-  const sessionsQuery = useQuery({
-    queryKey: ["sessions", uploadId, filters],
-    queryFn: () => getSessions(uploadId, filters),
-    enabled: Boolean(uploadId),
-  });
 
   const applyFilters = () => {
     const params = new URLSearchParams({ uploadId });
@@ -49,7 +39,7 @@ export default function SessionsPage() {
     setSearchParams(params);
   };
 
-  if (!uploadId) {
+  if (!visible) {
     return (
       <div className="app-card p-6">
         <p>Geen upload geselecteerd. Upload eerst een syslog bestand.</p>
@@ -62,9 +52,7 @@ export default function SessionsPage() {
       <div>
         <h1 className="app-page-title">SIP sessies</h1>
         <p className="app-page-subtitle">
-          {uploadQuery.data
-            ? `${uploadQuery.data.filename} — ${uploadQuery.data.session_count} sessies`
-            : "Laden..."}
+          {`${visible.filename} — ${visible.session_count} sessies`}
         </p>
       </div>
 
@@ -101,14 +89,7 @@ export default function SessionsPage() {
               </tr>
             </thead>
             <tbody>
-              {sessionsQuery.isLoading && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                    Laden...
-                  </td>
-                </tr>
-              )}
-              {sessionsQuery.data?.map((session) => (
+              {sessions.map((session) => (
                 <tr
                   key={session.id}
                   className="border-t border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900/50 cursor-pointer"
@@ -139,7 +120,7 @@ export default function SessionsPage() {
                   </td>
                 </tr>
               ))}
-              {sessionsQuery.data?.length === 0 && !sessionsQuery.isLoading && (
+              {sessions.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                     Geen sessies gevonden voor deze filters.

@@ -105,3 +105,12 @@ class FlowExportResponse(BaseModel):
     session_id: str
     sid: str
     text: str
+
+
+class AnalysisSession(SessionSummary):
+    messages: list[MessageDetail]
+    flow: FlowResponse
+
+
+class AnalysisResponse(UploadResponse):
+    sessions: list[AnalysisSession]

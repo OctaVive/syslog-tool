@@ -1,59 +1,69 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { exportSessionFlow, getMessage, getSessionFlow } from "@/api/client";
+import { buildFlowExport, loadAnalysis } from "@/api/client";
 import MessageDetailPanel from "@/components/MessageDetailPanel";
 import SipLadderDiagram from "@/components/SipLadderDiagram";
 
 export default function FlowPage() {
   const { sessionId = "" } = useParams();
   const [searchParams] = useSearchParams();
-  const uploadId = searchParams.get("uploadId") || "";
+  const uploadId = searchParams.get("uploadId") || loadAnalysis()?.id || "";
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
 
-  const flowQuery = useQuery({
-    queryKey: ["flow", sessionId],
-    queryFn: () => getSessionFlow(sessionId),
-    enabled: Boolean(sessionId),
-  });
+  const session = useMemo(() => {
+    const analysis = loadAnalysis();
+    if (!analysis || (uploadId && analysis.id !== uploadId)) return null;
+    return analysis.sessions.find((item) => item.id === sessionId) ?? null;
+  }, [sessionId, uploadId]);
 
   useEffect(() => {
-    setSelectedMessageId(null);
-  }, [sessionId]);
+    setSelectedMessageId(session?.flow.steps[0]?.message_id ?? null);
+  }, [session]);
 
-  useEffect(() => {
-    if (flowQuery.data?.steps.length && !selectedMessageId) {
-      setSelectedMessageId(flowQuery.data.steps[0].message_id);
+  const message = session?.messages.find((item) => item.id === selectedMessageId) ?? null;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [panelWidth, setPanelWidth] = useState(380);
+
+  const onResizeStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is unavailable for some synthetic events.
     }
-  }, [flowQuery.data, selectedMessageId]);
+    const startX = event.clientX;
+    const startWidth = panelWidth;
+    const rowWidth = rowRef.current?.getBoundingClientRect().width ?? startWidth + 320;
 
-  const messageQuery = useQuery({
-    queryKey: ["message", selectedMessageId],
-    queryFn: () => getMessage(selectedMessageId!),
-    enabled: Boolean(selectedMessageId),
-  });
+    const onMove = (moveEvent: PointerEvent) => {
+      const next = startWidth - (moveEvent.clientX - startX);
+      const max = Math.max(280, rowWidth - 320 - 12);
+      setPanelWidth(Math.min(max, Math.max(280, next)));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
-  const handleExport = async () => {
-    const exported = await exportSessionFlow(sessionId);
-    const blob = new Blob([exported.text], { type: "text/plain;charset=utf-8" });
+  const handleExport = () => {
+    if (!session) return;
+    const blob = new Blob([buildFlowExport(session)], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `sip-flow-${exported.sid.replace(/[:/\\]/g, "_")}.txt`;
+    anchor.download = `sip-flow-${session.sid.replace(/[:/\\]/g, "_")}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
 
-  if (flowQuery.isLoading) {
-    return <div className="app-card p-6">Call flow laden...</div>;
-  }
-
-  if (flowQuery.isError || !flowQuery.data) {
+  if (!session) {
     return <div className="app-card p-6">Kon call flow niet laden.</div>;
   }
-
-  const flow = flowQuery.data;
 
   return (
     <div className="space-y-4">
@@ -68,7 +78,7 @@ export default function FlowPage() {
           </Link>
           <h1 className="app-page-title">SIP Call Flow</h1>
           <p className="app-page-subtitle">
-            SID {flow.sid} · {flow.steps.length} berichten
+            SID {session.sid} · {session.flow.steps.length} berichten
           </p>
         </div>
         <button className="app-btn-secondary inline-flex items-center gap-2" onClick={handleExport}>
@@ -77,16 +87,29 @@ export default function FlowPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 min-h-[640px]">
-        <div className="xl:col-span-2 min-h-[480px]">
+      <div
+        ref={rowRef}
+        className="flex flex-col xl:flex-row min-h-[640px] gap-4 xl:gap-0"
+        style={{ "--panel-width": `${panelWidth}px` } as React.CSSProperties}
+      >
+        <div className="flex-1 min-w-0 min-h-[480px]">
           <SipLadderDiagram
-            flow={flow}
+            flow={session.flow}
             selectedMessageId={selectedMessageId}
             onSelect={setSelectedMessageId}
           />
         </div>
-        <div className="min-h-[480px]">
-          <MessageDetailPanel message={messageQuery.data ?? null} loading={messageQuery.isLoading} />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Berichtpaneel vergroten of verkleinen"
+          className="hidden xl:flex w-3 shrink-0 cursor-col-resize items-center justify-center"
+          onPointerDown={onResizeStart}
+        >
+          <div className="h-16 w-1 rounded-full bg-gray-300 dark:bg-neutral-700" />
+        </div>
+        <div className="min-h-[480px] w-full shrink-0 xl:w-[var(--panel-width)]">
+          <MessageDetailPanel message={message} />
         </div>
       </div>
     </div>

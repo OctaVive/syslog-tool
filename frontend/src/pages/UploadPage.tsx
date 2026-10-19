@@ -2,18 +2,18 @@ import { useCallback, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { FileUp, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { uploadSyslog, type UploadResponse } from "@/api/client";
+import { clearAnalysis, loadAnalysis, uploadSyslog, type AnalysisResponse } from "@/api/client";
 
 export default function UploadPage() {
   const navigate = useNavigate();
   const [dragOver, setDragOver] = useState(false);
-  const [result, setResult] = useState<UploadResponse | null>(null);
+  const [pasted, setPasted] = useState("");
+  const [result, setResult] = useState<AnalysisResponse | null>(() => loadAnalysis());
 
   const mutation = useMutation({
     mutationFn: uploadSyslog,
     onSuccess: (data) => {
       setResult(data);
-      sessionStorage.setItem("lastUploadId", data.id);
     },
   });
 
@@ -25,12 +25,26 @@ export default function UploadPage() {
     [mutation],
   );
 
+  const handlePaste = () => {
+    const text = pasted.trim();
+    if (!text) return;
+    const file = new File([pasted], "pasted.syslog", { type: "text/plain" });
+    mutation.mutate(file);
+  };
+
+  const handleClear = () => {
+    setPasted("");
+    setResult(null);
+    mutation.reset();
+    clearAnalysis();
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="app-page-title">Syslog uploaden</h1>
         <p className="app-page-subtitle">
-          Upload een AudioCodes syslog bestand om SIP-sessies te analyseren.
+          Upload een bestand of plak een AudioCodes syslog. Het resultaat blijft alleen in dit browsertabblad.
         </p>
       </div>
 
@@ -67,6 +81,32 @@ export default function UploadPage() {
             />
           </label>
         </div>
+      </div>
+
+      <div className="app-card p-6 space-y-4">
+        <div>
+          <label htmlFor="syslog-paste" className="font-medium">
+            Log plakken
+          </label>
+          <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+            Plak de syslog-tekst en analyseer hem zonder een bestand te kiezen.
+          </p>
+        </div>
+        <textarea
+          id="syslog-paste"
+          className="app-input min-h-48 font-mono text-xs"
+          placeholder="Plak hier een AudioCodes syslog..."
+          value={pasted}
+          onChange={(event) => setPasted(event.target.value)}
+        />
+        <button
+          className="app-btn-primary"
+          type="button"
+          disabled={!pasted.trim() || mutation.isPending}
+          onClick={handlePaste}
+        >
+          Log analyseren
+        </button>
       </div>
 
       {mutation.isError && (
@@ -108,12 +148,17 @@ export default function UploadPage() {
             </div>
           )}
 
-          <button
-            className="app-btn-primary"
-            onClick={() => navigate(`/sessions?uploadId=${result.id}`)}
-          >
-            Bekijk sessies
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="app-btn-primary"
+              onClick={() => navigate(`/sessions?uploadId=${result.id}`)}
+            >
+              Bekijk sessies
+            </button>
+            <button className="app-btn-secondary" type="button" onClick={handleClear}>
+              Wissen
+            </button>
+          </div>
         </div>
       )}
     </div>

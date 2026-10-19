@@ -88,6 +88,82 @@ export interface FlowExportResponse {
   text: string;
 }
 
+export interface AnalysisSession extends SessionSummary {
+  messages: MessageDetail[];
+  flow: FlowResponse;
+}
+
+export interface AnalysisResponse extends UploadResponse {
+  sessions: AnalysisSession[];
+}
+
+const STORAGE_KEY = "syslog-analysis";
+
+export function saveAnalysis(analysis: AnalysisResponse): void {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(analysis));
+}
+
+export function loadAnalysis(): AnalysisResponse | null {
+  const raw = sessionStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AnalysisResponse;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAnalysis(): void {
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
+export function filterSessions(
+  sessions: AnalysisSession[],
+  filters: {
+    sid?: string;
+    call_id?: string;
+    from?: string;
+    to?: string;
+    method?: string;
+  },
+): AnalysisSession[] {
+  const contains = (value: string | null, query: string | undefined) => {
+    if (!query) return true;
+    return (value || "").toLowerCase().includes(query.toLowerCase());
+  };
+  return sessions.filter((session) => {
+    if (!contains(session.sid, filters.sid)) return false;
+    if (!contains(session.call_id, filters.call_id)) return false;
+    if (!contains(session.from_header, filters.from)) return false;
+    if (!contains(session.to_header, filters.to)) return false;
+    if (filters.method && !session.methods.includes(filters.method.toUpperCase())) return false;
+    return true;
+  });
+}
+
+export function buildFlowExport(session: AnalysisSession): string {
+  const labels = Object.fromEntries(session.flow.participants.map((participant) => [participant.id, participant.label]));
+  const messages = Object.fromEntries(session.messages.map((message) => [message.id, message]));
+  const lines = [
+    `SIP Call Flow - SID: ${session.sid}`,
+    `Call-ID: ${session.call_id || "n/a"}`,
+    `Messages: ${session.message_count}`,
+    "",
+  ];
+  for (const step of session.flow.steps) {
+    const fromLabel = labels[step.from_participant] ?? step.from_participant;
+    const toLabel = labels[step.to_participant] ?? step.to_participant;
+    const arrow = step.is_request ? "->" : "<-";
+    lines.push(`[${step.timestamp}] ${fromLabel} ${arrow} ${toLabel} : ${step.label}`);
+    const message = messages[step.message_id];
+    if (message) {
+      lines.push(message.raw_text);
+      lines.push("");
+    }
+  }
+  return lines.join("\n");
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
@@ -97,42 +173,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function uploadSyslog(file: File): Promise<UploadResponse> {
+export async function uploadSyslog(file: File): Promise<AnalysisResponse> {
   const formData = new FormData();
   formData.append("file", file);
-  return request<UploadResponse>("/api/uploads", { method: "POST", body: formData });
-}
-
-export async function getUpload(uploadId: string): Promise<UploadResponse> {
-  return request<UploadResponse>(`/api/uploads/${uploadId}`);
-}
-
-export async function getSessions(
-  uploadId: string,
-  filters: {
-    sid?: string;
-    call_id?: string;
-    from?: string;
-    to?: string;
-    method?: string;
-  } = {},
-): Promise<SessionSummary[]> {
-  const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value) params.set(key, value);
-  });
-  const query = params.toString();
-  return request<SessionSummary[]>(`/api/uploads/${uploadId}/sessions${query ? `?${query}` : ""}`);
-}
-
-export async function getMessage(messageId: string): Promise<MessageDetail> {
-  return request<MessageDetail>(`/api/messages/${messageId}`);
-}
-
-export async function getSessionFlow(sessionId: string): Promise<FlowResponse> {
-  return request<FlowResponse>(`/api/sessions/${sessionId}/flow`);
-}
-
-export async function exportSessionFlow(sessionId: string): Promise<FlowExportResponse> {
-  return request<FlowExportResponse>(`/api/sessions/${sessionId}/flow/export`);
+  const analysis = await request<AnalysisResponse>("/api/uploads", { method: "POST", body: formData });
+  saveAnalysis(analysis);
+  return analysis;
 }
